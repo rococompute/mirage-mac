@@ -1,5 +1,8 @@
 # Plan: host entropy for unikernel CSPRNGs
 
+**Status:** implemented 2026-10-26. Where the implementation differs from
+this plan, see "As built" at the end.
+
 Review of `ENTROPY.md`. The diagnosis is right and the proposed fix is the one to build. A guest CSPRNG cannot invent entropy the hardware timer does not have, Fortuna in `mirage-crypto-rng` is the generator to keep, and a host hypercall filled from the host CSPRNG is the seed source. The block device, the command-line seed and the wall clock stay rejected for the reasons in that note.
 
 Several details in the proposal would ship the wrong failure mode or would kill the Linux tender. This plan is that proposal with those details fixed. The work is local to the forks in this workspace.
@@ -133,3 +136,45 @@ Done when a clean opam install of the overlay picks up both commits, and the kno
 - virtio-rng, Xen, and an spt `getrandom` seccomp hole. Those bindings return `EUNSPEC` and keep today's behaviour.
 - Deleting whirlwind, or treating `no CPU RNG bootstrap` as a failure.
 - Upstream Solo5. The ABI addition is confined to these forks. The feature bit is what makes a guest safe to run elsewhere.
+
+## As built
+
+Implemented as above, with these differences:
+
+- **`--no-random` leaves the hypercall unregistered**, not only the feature
+  bit clear. A guest that ignores the bit then stops with `invalid_access`,
+  as it would on a stock tender. Hostile case `random_unoffered` checks both
+  ways. The bit is derived from whether the handler is registered, so the
+  two cannot disagree.
+- **`solo5.h` defines `SOLO5_HAVE_RANDOM`.** The mirage-crypto stub only
+  calls `solo5_random` under `__ocaml_solo5__` and that macro, so
+  mirage-crypto still builds for Unix and against stock Solo5 headers.
+- **The `stub` binding** (Solo5's link-check target) also gets the
+  `SOLO5_R_EUNSPEC` stub. The plan listed four bindings, but there are five.
+- **One hypercall per top-up, not 32.** Each second the guest fetches 32
+  pools × 32 bytes in one 1024-byte request and splits it across the pools.
+- **No pre-draw before the sandbox.** `tests/sandbox_macos` makes the
+  process's first `arc4random_buf()` and `getentropy()` calls inside the
+  sandbox, which is the tender's situation, and both work. A pre-draw would
+  add nothing.
+- **Extra hostile case `random_wrap`.** A buffer whose end wraps past 2^64.
+- **The Mirage check uses its own unikernel.** Only mirage-crypto's
+  `mirage/` test unikernel prints its entropy sources. The skeleton
+  `applications/crypto` that the matrix's `crypto` case builds does not. The
+  matrix gets `mirage-tests/unikernels/entropy` and two cases: `entropy`
+  (`solo5-host` listed) and `entropy-fallback` (boots under `--no-random`).
+- **Overlay revisions are per fork.** `generate.sh` now has a revision
+  column: solo5 is `0.13.0+hvf.2`, mirage-crypto `2.4.1+hvf.3`.
+
+Measured: over a 5 s run, the tender served 7 requests: a 32-byte boot seed
+and six 1024-byte pool feeds. `--no-random` served none.
+
+Not checked on this machine: the Linux tender (`getrandom`, the seccomp
+entry) and the spt/virtio/xen/muen stubs, which only got a syntax check.
+
+
+Final run (2026-10-26): `tests/run-tests.sh` 104 passed, 0 failed;
+`mirage-tests/run-matrix.sh` 11 passed, 0 failed (including `entropy` and
+`entropy-fallback`). The matrix also got two fixes found along the way:
+build failures were silently skipped, and rebuilding an already-pulled
+unikernel failed when Finder wrote a `.DS_Store` into `duniverse/`.

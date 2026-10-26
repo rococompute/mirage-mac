@@ -1,6 +1,9 @@
 # Issue: weak RNG seeding for unikernels on Apple Silicon
 
-**Status:** open; fix proposed and not started
+**Status:** fixed on 2026-10-26 as planned in `ENTROPY_PLAN.md`: solo5
+`hvf-macos` commit "hvt: give guests host random bytes", mirage-crypto
+commit "rng-mirage: seed and feed Fortuna from the Solo5 host". The rest of
+this note is the original write-up.
 **Severity:** high for any unikernel that generates long-lived secrets (TLS
 keys, tokens), low for everything else
 **Scope:** this workspace's forks, purely local use

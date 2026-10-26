@@ -13,7 +13,7 @@ and its status.
 | `solo5/` | Solo5 fork, branch `hvf-macos`: HVF backend, sandbox, `solo5-vmnet`, tests |
 | `ocaml-solo5/` | ocaml-solo5 fork: builds the OCaml cross-compiler on macOS |
 | `mirage/` | mirage tool fork: accepts solo5 0.13 |
-| `mirage-crypto/` | mirage-crypto fork: entropy self-test on 24 MHz ARM timers |
+| `mirage-crypto/` | mirage-crypto fork: seeds the RNG from the host; entropy self-test on 24 MHz ARM timers |
 | `ocaml-gmp/` | gmp fork: builds with LLVM binutils and as a macOS host library |
 | `opam-repository/` | opam overlay carrying the five forks (`./generate.sh` rebuilds it) |
 | `mirage-tests/` | `run-matrix.sh`: builds and runs a set of mirage-skeleton unikernels |
@@ -74,6 +74,11 @@ With a block device: `--block:NAME=disk.img`. More detail is in
   working.
 - The tender never has network access itself. All guest traffic goes
   through `solo5-vmnet`, which can enforce an egress allow-list.
+- Guests get their randomness from the host. The RNG (Fortuna, from
+  mirage-crypto) is seeded at boot and fed every second from macOS's
+  `arc4random_buf()` through `solo5_random()`, since Apple silicon has no RNG
+  instruction. The boot log lists `solo5-host` among the entropy sources.
+  `solo5-hvt --no-random` turns this off. See `ENTROPY.md`.
 - A misbehaving guest (bad hypercalls or MMIO, illegal instructions, W^X
   violations, endless loops under `--cpu-limit`) is stopped and the reason
   reported. `solo5/tests/test_hostile` exercises each case.
@@ -87,9 +92,6 @@ cd mirage-tests && ./run-matrix.sh                          # MirageOS matrix
 
 ## Known gaps
 
-- **Entropy.** Apple Silicon has no hardware RNG instruction and Solo5 has no
-  entropy hypercall, so guests seed their RNG from the 24 MHz timer. That is
-  weak for long-lived TLS keys. See `ENTROPY.md` for the issue and the proposed fix.
 - **Debugging.** `solo5-hvt-debug` (gdb stub, core dumps) is not built on
   macOS yet. Upstream does not implement these for aarch64 on Linux either.
 - **CI.** Nothing runs automatically yet. GitHub's hosted macOS runners cannot

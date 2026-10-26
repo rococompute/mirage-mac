@@ -6,14 +6,14 @@ Build a reliable, production-grade way to build and run MirageOS unikernels on A
 
 The plan needs two personal forks:
 
-- **Solo5 fork.** Adds a Hypervisor.framework (HVF) backend to the hvt tender. The tender talks to HVF directly, the way `hvt_kvm.c` talks to KVM. The guest ABI stays the existing aarch64 hvt ABI (`HVT_ABI_VERSION` 2).
+- **Solo5 fork.** Adds a Hypervisor.framework (HVF) backend to the hvt tender. The tender talks to HVF directly, the way `hvt_kvm.c` talks to KVM. The guest ABI stays the existing aarch64 hvt ABI (`HVT_ABI_VERSION` 2), plus one appended, feature-gated hypercall for host random bytes (see `ENTROPY_PLAN.md`).
 - **ocaml-solo5 fork.** Makes the OCaml cross-compiler that every Mirage `-t hvt` build uses build and install on macOS/arm64.
 
 Getting either fork merged upstream is optional. It isn't part of the production bar, but keeping the changes upstreamable keeps rebases cheap.
 
 This plan builds on `GROK_SUGGESTION.md`. Its claims were checked against upstream Solo5, the prototype branch, the macOS 26.6.1 SDK, `mirage/ocaml-solo5` and `mirage/mirage`. Where they differ, the plan follows what was verified.
 
-## Status (2026-10-25)
+## Status (2026-10-26)
 
 MirageOS unikernels build and run on this Mac. `README.md` covers how to use it, and the fork histories record what changed.
 
@@ -22,10 +22,10 @@ MirageOS unikernels build and run on this Mac. `README.md` covers how to use it,
 | 0. Spikes and rebase | Done | All four spikes passed (`solo5/docs/hvf-spikes.md`): the 4 KiB granule enforces exact W^X, a deny-all sandbox works, vmnet works without root, and density was measured (13.5 ms cold start; 32 concurrent unikernels at about 13.6 MiB each). The prototype rebased with two small conflicts. |
 | 1. Host-agnostic fixes | Done | test_fpu, test_time, `.tdata` in `PT_TLS`, `@fd` errno and MTU, non-blocking kick pipe, plus two found along the way: hvt data and bss forced RW (LLD made test_wnox RWE), and an aarch64 buggyelf fixture. |
 | 2. HVF backend | Done | Every Linux-aarch64 hvt test passes, plus `rnow`, `rnox`, `wnox` and `xnor` (stricter than Linux). Net tests run unprivileged over `tests/netpeer`. |
-| 3. Containment | Done | Sandbox with `RLIMIT_NOFILE` clamp, `--exit-report`, `--cpu-limit`, 13 hostile-guest cases. The exit decoder is a pure function, checked in the suite (20M inputs) and fuzzed with libFuzzer, ASan and UBSan (201M runs, no findings). |
+| 3. Containment | Done | Sandbox with `RLIMIT_NOFILE` clamp, `--exit-report`, `--cpu-limit`, 16 hostile-guest cases. The exit decoder is a pure function, checked in the suite (20M inputs) and fuzzed with libFuzzer, ASan and UBSan (201M runs, no findings). |
 | 4. ocaml-solo5 and first unikernel | Done | ocaml-solo5 builds on macOS. Mirage hello runs. Two more forks were needed: `mirage` (solo5 0.13 bound) and `mirage-crypto` (24 MHz timer). |
 | 5. Networking | Done | `solo5-vmnet` (vmnet, no root) with an egress allow-list. gvproxy was not needed. |
-| 6. Mirage reliability | Matrix done, soak not run | `mirage-tests/run-matrix.sh`: 9 cases, all passing. A fifth fork was needed: `gmp` (macOS host and cross binutils). The 24-hour soak has not been run. |
+| 6. Mirage reliability | Matrix done, soak not run | `mirage-tests/run-matrix.sh`: 11 cases, all passing. A fifth fork was needed: `gmp` (macOS host and cross binutils). The 24-hour soak has not been run. |
 | 7. Debugging | Not started | Upstream aarch64 KVM has no gdb or dumpcore either. |
 | 8. CI and packaging | Packaging done, CI not started | The opam overlay is at `opam-repository/`. CI needs remote forks and a self-hosted runner. |
 
@@ -35,15 +35,15 @@ What changed from the plan as written, and why:
 - **`RLIMIT_FSIZE=0` was dropped.** XNU applies it to writes inside an existing file too, so it would break block devices.
 - **Networking needed no third-party code.** On macOS 26, vmnet works unprivileged with the unrestricted `com.apple.security.virtualization` entitlement. `solo5-vmnet` replaces the gvproxy plan, and building gvproxy was declined in this session anyway.
 - **The forks were finished, not just started.** Getting Mirage working took five forks (solo5, ocaml-solo5, mirage, mirage-crypto, gmp), fixing real macOS-host and LLVM-toolchain issues. Two of them are not Mac-specific: OCaml 5.5.2 patch offsets, and Clang placing `-Bstatic` late.
+- **Guests get host entropy.** Apple silicon has no RNG instruction and a 24 MHz counter, so the fork adds `solo5_random()`, served from `arc4random_buf()`. mirage-crypto seeds and feeds Fortuna from it. This amends bar item 4 (`ENTROPY.md`, `ENTROPY_PLAN.md`).
 - **Startup and density are good enough to need no pre-warmed pool.** A Mirage unikernel starts and exits in 13.5 ms. 32 run side by side at about 13.6 MiB each. A TCP/IP unikernel boots and answers 10,000 pings in under 50 ms.
 
 Open items, in priority order:
 
-1. **Entropy** (written up in `ENTROPY.md`). Apple Silicon has no `RNDR`, and Solo5 has no entropy hypercall, so guest RNG seeding relies on a 24 MHz timer. The proposed fix, for local use, is a host entropy hypercall (`solo5_random`, filled by `arc4random_buf` in the tender) that mirage-crypto uses as its seed source. It adds one hypercall to the fork's ABI.
-2. **The 24-hour soak** (Phase 6).
-3. **Remote forks, CI and a self-hosted runner** (Phase 8). These need the GitHub locations decided.
-4. **gdb and dumpcore** (Phase 7).
-5. **Report the `RLIMIT_CPU` livelock to Apple.** Upstream the host-agnostic fixes: the Solo5 Phase 1 commits, ocaml-solo5's 5.5.2 patches and `-pthread`, gmp, and mirage-crypto PR #283.
+1. **The 24-hour soak** (Phase 6).
+2. **Remote forks, CI and a self-hosted runner** (Phase 8). These need the GitHub locations decided.
+3. **gdb and dumpcore** (Phase 7).
+4. **Report the `RLIMIT_CPU` livelock to Apple.** Upstream the host-agnostic fixes: the Solo5 Phase 1 commits, ocaml-solo5's 5.5.2 patches and `-pthread`, gmp, and mirage-crypto PR #283.
 
 ## Threat model
 
@@ -130,7 +130,7 @@ macOS/arm64 counts as Production in the forks' docs when all of the following ho
 1. **Suite parity.** Every `hvt` test that Linux aarch64 runs in `tests/tests.bats` passes on Darwin, with no new `skip`. The `net*` tests run over an `@fd` socketpair harness instead of `tap100`.
 2. **W^X stricter than on Linux.** `xnow`, `wnox`, `rnow` and `rnox` pass on Darwin and print `host/guest translation fault`. `xnor` passes too if the spike shows stage-2 execute-only works.
 3. **Mac-built binaries are fully protected.** Unikernels built with the fork's toolchain run with every segment protected at stage 2, and the tender prints no "protections skipped" warning. If the 4 KiB granule spike passes, `.hvt` files built on Linux also run unmodified with full W^X. That's preferred, but not required.
-4. **ABI frozen.** `HVT_ABI_VERSION` stays 2, with no changes to `include/hvt_abi.h`, `struct hvt_boot_info` or the MMIO addresses, and no new hypercall.
+4. **ABI stable.** `HVT_ABI_VERSION` stays 2. The layout of `struct hvt_boot_info`, the MMIO addresses and the existing hypercall numbers do not change. New hypercalls are only appended, and each is offered through a `host_features` bit that guests check before using it, so a guest built against the fork still runs on a stock tender. The only one so far is `HVT_HYPERCALL_RANDOM` (`HVT_FEATURE_RANDOM`, see `ENTROPY_PLAN.md`).
 5. **Sandbox enforced.** `solo5-hvt` enters a seatbelt sandbox before the first `hv_vcpu_run`. The test proves that `open`, `execve`, `fork` and `socket` fail after the drop, while the fds opened beforehand keep working. `solo5-hvt-debug` alone keeps `HVT_DROP_PRIVILEGES=0`.
 6. **Hostile guests contained.**
    - A fuzz campaign against the HVF exit and hypercall decoding finds no tender crash and no access outside the guest.
@@ -334,7 +334,7 @@ Each phase ends with a check an agent can re-run. Don't start a phase until the 
 **Done when**
 - `tests/run-tests.sh` passes on this Mac for every test in bar item 1
 - the W^X tests pass
-- `git diff upstream/main -- include/hvt_abi.h` is empty
+- `git diff upstream/main -- include/hvt_abi.h` is empty (Phase 2 only; the random hypercall was appended later under amended bar item 4)
 - if the granule spike passed, a `test_hello.hvt` and a `test_xnow.hvt` built on Linux also pass
 
 Work items:
