@@ -1,12 +1,3 @@
-# Each fork and helper repository below is its own git repository.
-/solo5/
-/ocaml-solo5/
-/mirage/
-/mirage-crypto/
-/ocaml-gmp/
-/opam-repository/
-/mirage-tests/
-
 # Spike build outputs
 /spikes/granule/spike
 /spikes/granule/guest.bin
