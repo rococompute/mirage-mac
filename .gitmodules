@@ -1,28 +1,28 @@
 [submodule "solo5"]
 	path = solo5
-	url = ../solo5.git
+	url = https://github.com/rococompute/solo5.git
 	branch = hvf-macos
 [submodule "ocaml-solo5"]
 	path = ocaml-solo5
-	url = ../ocaml-solo5.git
+	url = https://github.com/rococompute/ocaml-solo5.git
 	branch = hvf-macos
 [submodule "mirage"]
 	path = mirage
-	url = ../mirage.git
+	url = https://github.com/rococompute/mirage.git
 	branch = hvf-macos
 [submodule "mirage-crypto"]
 	path = mirage-crypto
-	url = ../mirage-crypto.git
+	url = https://github.com/rococompute/mirage-crypto.git
 	branch = hvf-macos
 [submodule "ocaml-gmp"]
 	path = ocaml-gmp
-	url = ../ocaml-gmp.git
+	url = https://github.com/rococompute/ocaml-gmp.git
 	branch = hvf-macos
 [submodule "opam-repository"]
 	path = opam-repository
-	url = ../mirage-mac-opam-repository.git
+	url = https://github.com/rococompute/mirage-mac-opam-repository.git
 	branch = master
 [submodule "mirage-tests"]
 	path = mirage-tests
-	url = ../mirage-mac-tests.git
+	url = https://github.com/rococompute/mirage-mac-tests.git
 	branch = master
