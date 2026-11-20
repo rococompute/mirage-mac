@@ -4,9 +4,8 @@ This superproject pins the Solo5 HVF runtime, OCaml cross toolchain, Mirage,
 crypto, GMP and opam-monorepo forks, opam overlay, and integration tests used to build MirageOS
 unikernels on Apple Silicon Macs. The network test cases require macOS 26+.
 
-The fork repositories currently require GitHub repository access. Authenticate
-Git before cloning or letting opam fetch sources (for example, with
-`gh auth login` followed by `gh auth setup-git`). Clone the pinned sources over HTTPS:
+All the forks are public, so cloning and opam's fetches need no GitHub
+login. Clone the pinned sources over HTTPS:
 
 ```sh
 git clone --recurse-submodules https://github.com/rococompute/mirage-mac.git
