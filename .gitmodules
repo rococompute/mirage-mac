@@ -26,3 +26,6 @@
 	path = mirage-tests
 	url = https://github.com/rococompute/mirage-mac-tests.git
 	branch = master
+[submodule "opam-monorepo"]
+	path = opam-monorepo
+	url = https://github.com/rococompute/opam-monorepo.git
