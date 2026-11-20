@@ -36,6 +36,27 @@ unikernels. Start with `cd mirage-tests && ./run-matrix.sh --no-network` for the
 cases that only need Hypervisor.framework. Network cases also need vmnet and
 outbound internet access.
 
+## Unikernels that run programs of their own
+
+`solo5-hvt` maps guest memory W^X: only the image's code is executable. A
+unikernel that loads programs into its memory and runs them (kykeon runs Linux
+agent binaries this way) declares user memory instead, the one region that may
+be written and executed, and can link itself higher to leave room below for
+programs linked at fixed addresses. In `config.ml`:
+
+```ocaml
+let () =
+  register "agent"
+    ~user_memory:[ user_memory ~address:0x200000 ~size:0xbfd00000 "guest" ]
+    ~text_start:0xc0000000
+    [ main $ ... ]
+```
+
+The tender checks the region when it loads the image and refuses to run it,
+saying why, if it does not fit (`--mem`, the image, alignment). C code gets it
+with `solo5_user_memory_acquire("guest", &info)`. See USER_MEMORY in
+[solo5/docs/architecture.md](solo5/docs/architecture.md).
+
 When updating forks, commit and push each child repository first, regenerate and
 commit the overlay, and then commit the corresponding gitlinks here. The overlay
 uses HTTPS Git URLs pinned to commits; its package revisions must increase when
