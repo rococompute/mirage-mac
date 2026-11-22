@@ -29,3 +29,7 @@
 [submodule "opam-monorepo"]
 	path = opam-monorepo
 	url = https://github.com/rococompute/opam-monorepo.git
+[submodule "mirage-tcpip"]
+	path = mirage-tcpip
+	url = https://github.com/rococompute/mirage-tcpip.git
+	branch = hvf-macos

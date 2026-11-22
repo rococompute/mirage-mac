@@ -1,7 +1,7 @@
 # MirageOS on Apple Silicon
 
 This superproject pins the Solo5 HVF runtime, OCaml cross toolchain, Mirage,
-crypto, GMP and opam-monorepo forks, opam overlay, and integration tests used to build MirageOS
+crypto, TCP/IP, GMP and opam-monorepo forks, opam overlay, and integration tests used to build MirageOS
 unikernels on Apple Silicon Macs. The network test cases require macOS 26+.
 
 All the forks are public, so cloning and opam's fetches need no GitHub
